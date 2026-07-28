@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ECMWF - Predicción Salamanca</title>
+</head>
+<body>
+
+    <nav>
+        <a href="/">Inicio</a> |
+        <a href="/ecmwf">ECMWF</a>
+    </nav>
+
+    <h1>Predicción ECMWF — Salamanca</h1>
+
+    <form method="post">
+        <button type="submit">Descargar predicción ECMWF</button>
+    </form>
+
+    {% if error %}
+        <p style="color:red;"><strong>Error:</strong> {{ error }}</p>
+    {% endif %}
+
+    {% if data %}
+        <h2>Predicción +24 h (punto más cercano a Salamanca 40.97°N, 5.66°W)</h2>
+        <table border="1" cellpadding="6" cellspacing="0">
+            <tr>
+                <th>Variable</th>
+                <th>Valor</th>
+            </tr>
+            {% if data.temperature is not none %}
+            <tr>
+                <td>Temperatura (2 m)</td>
+                <td>{{ data.temperature }} °C</td>
+            </tr>
+            {% endif %}
+            {% if data.precipitation is not none %}
+            <tr>
+                <td>Precipitación acumulada</td>
+                <td>{{ data.precipitation }} mm</td>
+            </tr>
+            {% endif %}
+            {% if data.u10 is not none %}
+            <tr>
+                <td>Viento U (10 m)</td>
+                <td>{{ data.u10 }} m/s</td>
+            </tr>
+            {% endif %}
+            {% if data.v10 is not none %}
+            <tr>
+                <td>Viento V (10 m)</td>
+                <td>{{ data.v10 }} m/s</td>
+            </tr>
+            {% endif %}
+            {% if data.wind_speed is not none %}
+            <tr>
+                <td>Velocidad del viento (10 m)</td>
+                <td>{{ data.wind_speed }} m/s</td>
+            </tr>
+            {% endif %}
+        </table>
+    {% endif %}
+
+</body>
+</html>
