@@ -2,6 +2,21 @@
 <html>
 <head>
     <title>ECMWF - Predicción Salamanca</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; max-width: 960px; margin: auto; padding: 1em; }
+        nav { margin-bottom: 1em; }
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 6px 14px; }
+        th { background: #eee; }
+        .section { margin-top: 2em; border-top: 2px solid #ddd; padding-top: 1.2em; }
+        .meteogram img { max-width: 100%; height: auto; display: block; }
+        .btn { padding: 8px 18px; font-size: 1em; cursor: pointer; }
+        .error { color: #c00; }
+        .note { color: #666; font-size: 0.88em; margin-top: 0.5em; }
+        .legend-swatch { display: inline-block; width: 14px; height: 14px;
+                          vertical-align: middle; margin-right: 3px; border: 1px solid #888; }
+    </style>
 </head>
 <body>
 
@@ -12,53 +27,74 @@
 
     <h1>Predicción ECMWF — Salamanca</h1>
 
+    <!-- Deterministic forecast -->
     <form method="post">
-        <button type="submit">Descargar predicción ECMWF</button>
+        <input type="hidden" name="action" value="forecast">
+        <button class="btn" type="submit">⬇ Descargar predicción ECMWF (+24 h)</button>
     </form>
 
     {% if error %}
-        <p style="color:red;"><strong>Error:</strong> {{ error }}</p>
+        <p class="error"><strong>Error:</strong> {{ error }}</p>
     {% endif %}
 
     {% if data %}
         <h2>Predicción +24 h (punto más cercano a Salamanca 40.97°N, 5.66°W)</h2>
-        <table border="1" cellpadding="6" cellspacing="0">
-            <tr>
-                <th>Variable</th>
-                <th>Valor</th>
-            </tr>
+        <table>
+            <tr><th>Variable</th><th>Valor</th></tr>
             {% if data.temperature is not none %}
-            <tr>
-                <td>Temperatura (2 m)</td>
-                <td>{{ data.temperature }} °C</td>
-            </tr>
+            <tr><td>Temperatura (2 m)</td><td>{{ data.temperature }} °C</td></tr>
             {% endif %}
             {% if data.precipitation is not none %}
-            <tr>
-                <td>Precipitación acumulada</td>
-                <td>{{ data.precipitation }} mm</td>
-            </tr>
+            <tr><td>Precipitación acumulada</td><td>{{ data.precipitation }} mm</td></tr>
             {% endif %}
             {% if data.u10 is not none %}
-            <tr>
-                <td>Viento U (10 m)</td>
-                <td>{{ data.u10 }} m/s</td>
-            </tr>
+            <tr><td>Viento U (10 m)</td><td>{{ data.u10 }} m/s</td></tr>
             {% endif %}
             {% if data.v10 is not none %}
-            <tr>
-                <td>Viento V (10 m)</td>
-                <td>{{ data.v10 }} m/s</td>
-            </tr>
+            <tr><td>Viento V (10 m)</td><td>{{ data.v10 }} m/s</td></tr>
             {% endif %}
             {% if data.wind_speed is not none %}
-            <tr>
-                <td>Velocidad del viento (10 m)</td>
-                <td>{{ data.wind_speed }} m/s</td>
-            </tr>
+            <tr><td>Velocidad del viento (10 m)</td><td>{{ data.wind_speed }} m/s</td></tr>
             {% endif %}
         </table>
     {% endif %}
+
+    <!-- ENS Meteogram -->
+    <div class="section">
+        <h2>Meteograma ENS (Ensemble, 51 miembros)</h2>
+        <p class="note">
+            Descarga los 51 miembros del ENS ECMWF (temperatura 2 m, pasos 6-168 h cada 6 h)
+            y genera un meteograma de Tmax/Tmin diarias para Salamanca.<br>
+            <strong>La descarga puede tardar varios minutos</strong> según la velocidad de
+            conexión, ya que el servidor obtiene la malla global a 0.4°.
+        </p>
+
+        <form method="post">
+            <input type="hidden" name="action" value="ens_meteogram">
+            <button class="btn" type="submit">⬇ Generar Meteograma ENS ECMWF</button>
+        </form>
+
+        {% if ens_error %}
+            <p class="error"><strong>Error ENS:</strong> {{ ens_error }}</p>
+        {% endif %}
+
+        {% if meteogram_exists %}
+        <div class="meteogram" style="margin-top: 1.2em;">
+            <img
+                src="{{ url_for('static', filename='plots/ens_meteogram.png') }}?v={{ cache_bust }}"
+                alt="Meteograma ENS ECMWF Salamanca"
+            >
+            <p class="note">
+                <span class="legend-swatch" style="background:#ff6666;"></span> Tmax &nbsp;
+                <span class="legend-swatch" style="background:#6699ff;"></span> Tmin
+                &nbsp;|&nbsp;
+                Caja: percentiles 25–75 &nbsp;|&nbsp;
+                Bigotes: p10–p90 &nbsp;|&nbsp;
+                Marcas: mín/máx de los 51 miembros ENS
+            </p>
+        </div>
+        {% endif %}
+    </div>
 
 </body>
 </html>
