@@ -6,14 +6,14 @@ WORKDIR /app
 # Instalar dependencias del sistema para eccodes/cfgrib
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libeccodes-dev \
-    libeccodes2 \
+    libeccodes0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar código
 COPY ./web /app
 
 # Instalar Flask y dependencias ECMWF
-RUN pip install --no-cache-dir Flask ecmwf-opendata xarray cfgrib
+RUN pip install --no-cache-dir Flask ecmwf-opendata xarray cfgrib numpy matplotlib
 
 # Exponer puerto
 EXPOSE 5000
