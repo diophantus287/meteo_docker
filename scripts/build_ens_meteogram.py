@@ -116,7 +116,7 @@ def _collect_ens_t2m(grib_path: str) -> dict[int, list[float]]:
 def _compute_daily_stats(
     step_data: dict[int, list[float]],
     n_days: int = 7,
-) -> tuple[list[str], list[str], dict, dict]:
+) -> tuple[list[datetime.date], list[str], dict, dict]:
     """
     Derive per-day Tmin / Tmax distributions from 6-hourly ensemble values.
 
@@ -128,7 +128,7 @@ def _compute_daily_stats(
     tmax_stats : same structure
     """
     today = datetime.now(timezone.utc).date()
-    dates: list = []
+    dates: list[datetime.date] = []
     day_labels: list[str] = []
     tmin_stats: dict[str, list[float]] = {k: [] for k in ("mn", "p10", "p25", "p50", "p75", "p90", "mx")}
     tmax_stats: dict[str, list[float]] = {k: [] for k in ("mn", "p10", "p25", "p50", "p75", "p90", "mx")}
