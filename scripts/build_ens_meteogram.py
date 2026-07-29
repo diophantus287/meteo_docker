@@ -84,7 +84,7 @@ def _compute_daily_stats(step_data, n_days=7):
     Returns
     -------
     day_labels : list[str]
-    tmin_stats : dict  {mn, p10, p25, p50, p75, p90, mx}  (one value per day)
+    tmin_stats : dict  {mn, p10, p25, p50, p75, p90, mx}  (list with one value per day)
     tmax_stats : same structure
     """
     import numpy as np
@@ -269,8 +269,13 @@ def build(output_path, steps_max=168):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         # Write to a temporary file next to the target, then rename atomically
         tmp_out = output_path + ".tmp"
-        _plot_ens_meteogram(day_labels, tmin_stats, tmax_stats, tmp_out)
-        os.replace(tmp_out, output_path)
+        try:
+            _plot_ens_meteogram(day_labels, tmin_stats, tmax_stats, tmp_out)
+            os.replace(tmp_out, output_path)
+        except Exception:
+            if os.path.exists(tmp_out):
+                os.unlink(tmp_out)
+            raise
         print(f"[ens-batch] Meteograma guardado en {output_path}", flush=True)
 
     finally:

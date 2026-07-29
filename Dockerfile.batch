@@ -21,6 +21,6 @@ RUN pip install --no-cache-dir \
 # The plots directory is mounted at /plots from the host.
 ENV ENS_OUTPUT=/plots/ens_meteogram.png
 
-# Run every 6 hours: sleep 6h, then re-run.
-# Use exec so the Python process receives signals cleanly.
-CMD ["sh", "-c", "while true; do python /batch/build_ens_meteogram.py --output \"$ENS_OUTPUT\"; sleep 21600; done"]
+# Run every 6 hours: attempt once, then sleep before the next attempt
+# regardless of success or failure (avoids tight retry loops on persistent errors).
+CMD ["sh", "-c", "while true; do python /batch/build_ens_meteogram.py --output \"$ENS_OUTPUT\" || echo '[ens-batch] Run failed, will retry after 6 h'; sleep 21600; done"]
