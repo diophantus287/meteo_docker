@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+# System deps for eccodes/cfgrib
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libeccodes-dev \
+    libeccodes0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /batch
+
+COPY scripts/build_ens_meteogram.py /batch/build_ens_meteogram.py
+
+RUN pip install --no-cache-dir \
+    ecmwf-opendata \
+    xarray \
+    cfgrib \
+    numpy \
+    matplotlib
+
+# Default output path inside the container — override with ENS_OUTPUT env var
+# The plots directory is mounted at /plots from the host.
+ENV ENS_OUTPUT=/plots/ens_meteogram.png
+
+# Run every 6 hours: sleep 6h, then re-run.
+# Use exec so the Python process receives signals cleanly.
+CMD ["sh", "-c", "while true; do python /batch/build_ens_meteogram.py --output \"$ENS_OUTPUT\"; sleep 21600; done"]

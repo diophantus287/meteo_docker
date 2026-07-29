@@ -15,6 +15,19 @@ services:
       - "traefik.http.routers.meteo-files.tls.certresolver=myresolver"
       - "traefik.http.services.meteo-files.loadbalancer.server.port=5000"
 
+  ens-batch:
+    build:
+      context: .
+      dockerfile: Dockerfile.batch
+    container_name: ens-batch
+    restart: unless-stopped
+    # Shares the same plots folder as the web container.
+    volumes:
+      - ./web/static/plots:/plots
+    # No network access needed beyond outbound HTTPS to ECMWF open-data servers.
+    environment:
+      - ENS_OUTPUT=/plots/ens_meteogram.png
+
 networks:
   web:
     external: true
