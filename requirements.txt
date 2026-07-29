@@ -1,0 +1,6 @@
+# Python dependencies for scripts/build_ens_meteogram.py
+ecmwf-opendata
+cfgrib
+xarray
+numpy
+matplotlib
