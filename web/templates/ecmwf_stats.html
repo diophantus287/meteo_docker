@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ECMWF ENS - Estadísticos diarios</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --link: #60a5fa;
+      --border: #1f2937;
+      --th: #0b1220;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: rgba(17,24,39,.88);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+    h1 { margin:0; font-size:1.2rem; }
+    .sub { color: var(--muted); margin: 6px 0 14px; font-size: .92rem; }
+    a {
+      color: var(--link);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:hover { text-decoration: underline; }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0b1020;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+      font-size: .92rem;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--th);
+      z-index: 1;
+      color: #cbd5e1;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      white-space: nowrap;
+    }
+    tbody td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    tbody tr:hover {
+      background: rgba(148,163,184,.08);
+    }
+    tbody td:first-child,
+    thead th:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: #0f1629;
+      z-index: 2;
+    }
+    .muted { color: var(--muted); }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: .88rem;
+      margin-top: 8px;
+    }
+    .group {
+      background: #0a1326;
+      color: #e2e8f0;
+      font-weight: 700;
+      text-align: center !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h1>Tabla de estadísticos diarios ENS (°C) · Salamanca</h1>
+        <a href="{{ url_for('ecmwf') }}">← Volver al meteograma</a>
+      </div>
+      <p class="sub">
+        Percentiles por día para Tmin/Tmax (min, p10, p25, p50, p75, p90, max).
+      </p>
+
+      {% if rows and rows|length > 0 %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th rowspan="2">Día</th>
+                <th class="group" colspan="7">Tmin (°C)</th>
+                <th class="group" colspan="7">Tmax (°C)</th>
+              </tr>
+              <tr>
+                <th>min</th><th>p10</th><th>p25</th><th>p50</th><th>p75</th><th>p90</th><th>max</th>
+                <th>min</th><th>p10</th><th>p25</th><th>p50</th><th>p75</th><th>p90</th><th>max</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+                <tr>
+                  <td>{{ r.day }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_min) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_p10) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_p25) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_p50) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_p75) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_p90) }}</td>
+                  <td>{{ "%.1f"|format(r.tmin_max) }}</td>
+
+                  <td>{{ "%.1f"|format(r.tmax_min) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_p10) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_p25) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_p50) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_p75) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_p90) }}</td>
+                  <td>{{ "%.1f"|format(r.tmax_max) }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">
+          No hay estadísticos disponibles todavía.<br />
+          Genera primero el CSV (ej. <code>data/ens_salamanca.csv</code>).
+        </div>
+      {% endif %}
+
+      <div class="meta">
+        {% if updated_at %}
+          Última actualización: {{ updated_at }}
+        {% else %}
+          Última actualización: no disponible
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

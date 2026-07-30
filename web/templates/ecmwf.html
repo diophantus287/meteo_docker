@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ECMWF ENS - Meteograma Salamanca</title>
+  <style>
+:root {
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --text: #111827;
+  --accent: #16a34a;
+  --link: #2563eb;
+  --border: #d1d5db;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.wrap {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 6px;
+}
+
+p.sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: .95rem;
+  line-height: 1.35rem;
+}
+
+.topbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.links {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.plot {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+}
+
+.plot img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.legend {
+  margin-top: 12px;
+  font-size: .9rem;
+  color: var(--muted);
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.red {
+  background: #e53935;
+}
+
+.blue {
+  background: #1e88e5;
+}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Meteograma ENS ECMWF · Salamanca</h1>
+      <p class="sub">
+        Visualización de dispersión diaria de temperatura mínima y máxima del ensemble.
+      </p>
+
+      <div class="topbar">
+        <div class="links">
+          <!-- Enlace a tabla -->
+          <a href="{{ url_for('ecmwf_stats') }}">Ver tabla de estadísticos</a>
+          <!-- Si tienes botón de refresco local -->
+          <a href="{{ url_for('ecmwf') }}">Recargar</a>
+        </div>
+        <div class="meta">
+          {% if updated_at %}
+            Última actualización: {{ updated_at }}
+          {% else %}
+            Última actualización: no disponible
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="plot">
+        {% if plot_url %}
+          <img src="{{ plot_url }}" alt="Meteograma ENS de Salamanca" />
+        {% else %}
+          <div class="empty">
+            No hay meteograma disponible todavía.<br />
+            Genera primero el archivo <code>static/ens_meteograma.png</code>.
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="legend">
+        <span><span class="dot red"></span>Tmax (rojo)</span>
+        &nbsp;&nbsp;·&nbsp;&nbsp;
+        <span><span class="dot blue"></span>Tmin (azul)</span>
+        <br />
+        Caja: P25–P75 · Línea central: P50 · Bigotes: P10–P90 (opcional min/max)
+      </div>
+    </div>
+  </div>
+</body>
+</html>

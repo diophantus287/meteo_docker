@@ -1,0 +1,20 @@
+services:
+  meteo-files:
+    build: .
+    container_name: meteo-files
+    volumes:
+      - ./web:/app
+    networks:
+      - web
+    ports:
+      - "8084:5000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.meteo-files.rule=Host(`meteo.warein.me`)"
+      - "traefik.http.routers.meteo-files.entrypoints=web"
+      - "traefik.http.routers.meteo-files.tls.certresolver=myresolver"
+      - "traefik.http.services.meteo-files.loadbalancer.server.port=5000"
+
+networks:
+  web:
+    external: true

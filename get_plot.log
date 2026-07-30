@@ -1,0 +1,52 @@
+[2026-07-30 18:45:01] Esperando 150 segundos antes de comenzar...
+[2026-07-30 18:47:31] Limpiando carpeta local: /home/robin/meteo_docker/web/static/plots/
+[2026-07-30 18:47:31] Descargando pantalla.png desde 192.168.68.104
+Connected to 192.168.68.104.
+sftp> get /home/screen/pantallear/pantalla.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/screen/pantallear/pantalla.png to /home/robin/meteo_docker/web/static/plots/pantalla.png
+sftp> bye
+[2026-07-30 18:47:33] Descargando plot_diario.png desde 192.168.0.33
+Connected to 192.168.0.33.
+sftp> get /home/edward/01_casa/03_plots/plot_diario.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/edward/01_casa/03_plots/plot_diario.png to /home/robin/meteo_docker/web/static/plots/plot_diario.png
+sftp> bye
+[2026-07-30 18:47:37] Descargando archivos desde 192.168.0.30
+[2026-07-30 18:47:37] --> plotfechas.png
+Connected to 192.168.0.30.
+sftp> get /home/max/07_aemet/02_prediccion/csv_elaboracion/plotfechas.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/07_aemet/02_prediccion/csv_elaboracion/plotfechas.png to /home/robin/meteo_docker/web/static/plots/plotfechas.png
+sftp> bye
+[2026-07-30 18:47:39] --> casa_total.png
+Connected to 192.168.0.30.
+sftp> get /home/max/01_plotscasa/casa_total.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/01_plotscasa/casa_total.png to /home/robin/meteo_docker/web/static/plots/casa_total.png
+sftp> bye
+[2026-07-30 18:47:40] --> out_total.png
+Connected to 192.168.0.30.
+sftp> get /home/max/01_plotscasa/out_total.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/01_plotscasa/out_total.png to /home/robin/meteo_docker/web/static/plots/out_total.png
+sftp> bye
+[2026-07-30 18:47:42] --> prediccion_salamanca_IA.png
+Connected to 192.168.0.30.
+sftp> get /home/max/07_aemet/02_prediccion/prediccion_salamanca_IA.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/07_aemet/02_prediccion/prediccion_salamanca_IA.png to /home/robin/meteo_docker/web/static/plots/prediccion_salamanca_IA.png
+sftp> bye
+[2026-07-30 18:47:43] --> UV_index.png
+Connected to 192.168.0.30.
+sftp> get /home/max/07_aemet/04_UVindex/uv_img/UV_index.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/07_aemet/04_UVindex/uv_img/UV_index.png to /home/robin/meteo_docker/web/static/plots/UV_index.png
+sftp> bye
+[2026-07-30 18:47:44] Renombrado a 01_plot_diario.png
+[2026-07-30 18:47:44] Renombrado a 02_pantalla.png
+[2026-07-30 18:47:44] Renombrado a 31_UV_index.png
+[2026-07-30 18:47:44] Renombrado a 10_prediccion_salamanca.png
+[2026-07-30 18:47:44] Renombrado a 91_plotfechas.png
+[2026-07-30 18:47:44] Renombrado a 20_out_total.png
+[2026-07-30 18:47:44] Renombrado a 21_casa_total.png
+[2026-07-30 18:47:44] Descargando último plot diario desde 192.168.0.30
+[2026-07-30 18:47:44] --> Último archivo: temperaturas_2026-07-30.png
+Connected to 192.168.0.30.
+sftp> get /home/max/07_aemet/03_historico/plots_diarios/temperaturas_2026-07-30.png /home/robin/meteo_docker/web/static/plots/
+Fetching /home/max/07_aemet/03_historico/plots_diarios/temperaturas_2026-07-30.png to /home/robin/meteo_docker/web/static/plots/temperaturas_2026-07-30.png
+sftp> bye
+[2026-07-30 18:47:45] Renombrado a 90_temperaturas_2026-07-30.png
