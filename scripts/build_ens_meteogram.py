@@ -26,6 +26,7 @@ import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import earthkit.data as ekd
 
 import matplotlib
 matplotlib.use("Agg")
@@ -42,7 +43,7 @@ REPO_ROOT = SCRIPT_DIR.parent
 
 DEFAULT_CSV  = REPO_ROOT / "web" / "data" / "ens_salamanca.csv"
 DEFAULT_JSON = REPO_ROOT / "web" / "data" / "ens_meteograma.json"
-DEFAULT_PNG  = REPO_ROOT / "web" / "static" / "plots" / "ens_meteograma.png"
+DEFAULT_PNG  = REPO_ROOT / "web" / "static" / "ecmwf" / "ens_meteograma.png"
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -254,14 +255,14 @@ def _plot_meteogram(
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    legend_elements = [
-        mpatches.Patch(fc="#ff6666", ec="#cc0000", alpha=0.75, label="Tmax"),
-        mpatches.Patch(fc="#6699ff", ec="#0044cc", alpha=0.75, label="Tmin"),
-        Line2D([0], [0], color="gray", lw=4, alpha=0.6, label="Caja: p25–p75"),
-        Line2D([0], [0], color="gray", lw=1.5, label="Bigotes: p10–p90"),
-        Line2D([0], [0], color="gray", lw=1, ls=":", label="Extremos: mín–máx"),
-    ]
-    ax.legend(handles=legend_elements, loc="upper right", fontsize=9, framealpha=0.8)
+    #legend_elements = [
+    #    mpatches.Patch(fc="#ff6666", ec="#cc0000", alpha=0.75, label="Tmax"),
+    #    mpatches.Patch(fc="#6699ff", ec="#0044cc", alpha=0.75, label="Tmin"),
+    #    Line2D([0], [0], color="gray", lw=4, alpha=0.6, label="Caja: p25–p75"),
+    #    Line2D([0], [0], color="gray", lw=1.5, label="Bigotes: p10–p90"),
+    #    Line2D([0], [0], color="gray", lw=1, ls=":", label="Extremos: mín–máx"),
+    #]
+    #ax.legend(handles=legend_elements, loc="upper right", fontsize=9, framealpha=0.8)
 
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -359,40 +360,41 @@ def _save_json(
 
 def build(csv_path: Path, json_path: Path, png_path: Path) -> None:
     """Download ENS data, compute stats, and save all artifacts."""
-    try:
-        from ecmwf.opendata import Client
-    except ImportError as exc:
-        log.error("ecmwf-opendata not installed: %s", exc)
-        sys.exit(1)
 
     generated_at = datetime.now(timezone.utc)
     run_label = f"Generado: {generated_at.strftime('%Y-%m-%d %H:%M UTC')}"
 
-    client = Client()
-    step_data: dict[int, list[float]] = {}
-    tmp_files: list[str] = []
+    step_data = {}
+    tmp_files = []
 
     try:
-        for fc_type in ("cf", "pf"):
-            fd, tmp_path = tempfile.mkstemp(suffix="_pf.grib2")
-            os.close(fd)
-            tmp_files.append(tmp_path)
+        log.info("Downloading ENS...")
 
-            log.info("Downloading ENS type=pf …")
-            client.retrieve(
-                type="pf",
-                param="2t",
-                step=STEPS,
-                number=list(range(1, 51)),
-                target=tmp_path,
-            )
+        ds = ekd.from_source(
+            "ecmwf-open-data",
+            stream="enfo",
+            type="pf",
+            param="2t",
+            step=STEPS,
+            number=range(1, 51),
+        )
 
-            log.info("Parsing %s …", tmp_path)
-            parsed = _collect_ens_t2m(tmp_path)
-            if not parsed:
-                log.warning("No t2m data found in %s (type=pf)", tmp_path)
-            for sh, vals in parsed.items():
-                step_data.setdefault(sh, []).extend(vals)
+        fd, tmp_path = tempfile.mkstemp(suffix=".grib")
+        os.close(fd)
+        tmp_files.append(tmp_path)
+
+        ds.save(tmp_path)
+
+        log.info("Parsing %s...", tmp_path)
+
+        parsed = _collect_ens_t2m(tmp_path)
+
+        if not parsed:
+            log.warning("No t2m data found")
+
+        for sh, vals in parsed.items():
+            step_data.setdefault(sh, []).extend(vals)
+
     finally:
         for f in tmp_files:
             if os.path.exists(f):

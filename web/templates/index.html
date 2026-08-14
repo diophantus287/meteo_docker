@@ -1,27 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+    <meta charset="utf-8">
     <title>Meteo Plots</title>
     <meta http-equiv="refresh" content="300">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .botones {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            max-width: 900px;
+            margin: 30px auto;
+        }
+
+        .boton {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            transition: transform .15s, box-shadow .15s;
+        }
+
+        .boton:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,.3);
+        }
+    </style>
 </head>
+
 <body>
 
-    <nav>
-        <a href="/">Inicio</a> |
-        <a href="/ecmwf">ECMWF</a>
-    </nav>
+<h1>Selecciona un punto</h1>
 
-    <h1>Predicciones y temperaturas</h1>
+<div class="botones">
+{% for plot in plots %}
 
-    {% for plot in plots %}
-        <h2>{{ plot }}</h2>
+    {% set t = loop.index0 / (plots|length - 1) %}
+    {% set hue = 120 * t %}
 
-        <img
-            src="{{ url_for('static', filename='plots/' + plot) }}?v={{ cache_id }}"
-            width="600"
-            alt="{{ plot }}"
-        >
-    {% endfor %}
+    <a class="boton"
+       href="/plot/{{ loop.index0 }}"
+       style="background:hsl({{ hue }},75%,45%);">
+        {{ loop.index }}
+    </a>
+
+{% endfor %}
+</div>
 
 </body>
 </html>
