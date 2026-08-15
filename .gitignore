@@ -1,3 +1,40 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+get_ecmwf.log
+get_plot.log
+scripts/get_ecmwf.log
+
+# Runtime/generated data (pesado o regenerable)
+data/ecmwf/global/*.grib
+web/data/ens_meteograma.json
+web/data/ens_salamanca.csv
+web/static/ecmwf/*.png
+web/static/plots/*.png
+
+# Optional: local dotenv/secrets
+.env
+.env.*
+!.env.example
