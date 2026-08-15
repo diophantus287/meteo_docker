@@ -38,3 +38,6 @@ web/static/plots/*.png
 .env
 .env.*
 !.env.example
+
+._*
+.DS_Store
