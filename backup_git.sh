@@ -1,26 +1,36 @@
 #!/bin/bash
-# === Backup automático del repositorio local a GitHub ===
+set -euo pipefail
 
-# Directorio del proyecto
+# Backup automático/manual del repositorio local a GitHub
+
 REPO_DIR="/home/robin/meteo_docker"
+AUTO_MSG="Backup automático - $(date '+%Y-%m-%d %H:%M:%S')"
 
-# Mensaje de commit con fecha y hora
-MSG="Backup automático - $(date '+%Y-%m-%d %H:%M:%S')"
+cd "$REPO_DIR" || { echo "No se pudo acceder al repositorio"; exit 1; }
 
-# Ir al repositorio
-cd "$REPO_DIR" || { echo "❌ No se pudo acceder al repositorio"; exit 1; }
-
-# Mostrar estado
 echo "=== Estado del repositorio ==="
-git status
+git status --short
 
-# Añadir todos los cambios
+# Si no hay cambios, salir limpio
+if git diff --quiet && git diff --cached --quiet; then
+  echo "No hay cambios para commit."
+  exit 0
+fi
+
+MSG="$AUTO_MSG"
+
+# Si hay terminal interactiva, pedir mensaje
+# (en cron normalmente no hay TTY, así que usa AUTO_MSG)
+if [ -t 0 ]; then
+  read -r -p "Mensaje de commit (Intro = automático): " USER_MSG
+  if [ -n "${USER_MSG// }" ]; then
+    MSG="$USER_MSG"
+  fi
+fi
+
 git add .
-
-# Crear commit
 git commit -m "$MSG"
-
-# Subir a GitHub
 git push
 
 echo "Backup completado correctamente en $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Commit: $MSG"

@@ -64,7 +64,7 @@ def download_global_ens(global_out: Path, fast_test: bool = False) -> None:
         client.retrieve(
             stream="enfo",
             type="pf",
-            param="2t",
+            param=["2t","tp"],
             step=steps,
             number=numbers,
             target=str(tmp_path),

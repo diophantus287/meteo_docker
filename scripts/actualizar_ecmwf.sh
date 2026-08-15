@@ -1,22 +1,31 @@
 #!/bin/bash
 set -euo pipefail
+# -e  : salir si cualquier comando falla
+# -u  : error si se usa una variable no definida
+# -o pipefail : si falla un comando de un pipe, falla todo el script
 
 START_TS=$(date +%s)
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Inicio actualizar_ecmwf.sh"
 
+# Ir a la raíz del proyecto
 cd /home/robin/meteo_docker
+
+# Activar entorno virtual Python
 source .venv/bin/activate
 
-# 1) Descargar GRIB global
-#python scripts/build_ens_meteogram.py
+# 1) Descargar/actualizar GRIB ENS global
+# flock evita solapes de cron (si ya hay uno corriendo, no entra)
+# timeout corta el proceso si supera 90 minutos
+#flock -n /tmp/ecmwf.lock timeout 90m python scripts/build_ens_meteogram.py
 
-# 2) Extraer y plotear localidades
-python scripts/plotear_meteogram.py --city salamanca
-python scripts/plotear_meteogram.py --city vilanova_de_milfontes
-python scripts/plotear_meteogram.py --city portimao 
-# Ejemplos adicionales:
-# python scripts/plotear_meteogram.py --city madrid
-# python scripts/plotear_meteogram.py --name "Ciudad Rodrigo" --lat 40.60 --lon -6.53
+# 2) Extraer series locales a CSV (abre GRIB una sola vez para todas las ciudades)
+#python scripts/ens_to_csv.py \
+#  --city salamanca \
+#  --city vilanova_de_milfontes \
+#  --city portimao
+
+# 3) Generar PNGs desde todos los CSV ens_*.csv encontrados en web/data
+python scripts/plot_ens_from_csv.py --all
 
 END_TS=$(date +%s)
 ELAPSED=$((END_TS - START_TS))
