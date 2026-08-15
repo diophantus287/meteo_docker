@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """
-Build ECMWF ENS meteogram for Salamanca.
+Build ECMWF ENS meteogram for Salamanca + persist a single global ENS file.
 
-Downloads 51-member ENS 2 m temperature forecasts (steps 6–168 h, every 6 h),
-computes daily Tmin / Tmax distributions across all members, and saves:
+Downloads ENS 2 m temperature forecasts, computes daily Tmin / Tmax distributions
+across members for Salamanca, and saves:
 
-    web/data/ens_salamanca.csv       – daily stats table
-    web/data/ens_meteograma.json     – machine-readable summary
-    web/static/plots/ens_meteograma.png – meteogram image
-como pue
+    web/data/ens_salamanca.csv
+    web/data/ens_meteograma.json
+    web/static/ecmwf/ens_meteograma.png
+
+Additionally, stores the full downloaded ENS GRIB for reuse by other scripts
+(overwritten on every run):
+
+    data/ecmwf/global/ecmwf_ens_global_latest.grib
+
 Usage
 -----
     python scripts/build_ens_meteogram.py
-    python scripts/build_ens_meteogram.py --csv /tmp/ens.csv --png /tmp/ens.png
+    python scripts/build_ens_meteogram.py --fast-test
+    python scripts/build_ens_meteogram.py --global-out /ruta/a/ecmwf_ens_global_latest.grib
 """
 
 from __future__ import annotations
@@ -21,18 +27,18 @@ import argparse
 import csv
 import json
 import logging
-import os
+import shutil
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import earthkit.data as ekd
 
+from ecmwf.opendata import Client
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
 
 # ---------------------------------------------------------------------------
@@ -41,16 +47,24 @@ import numpy as np
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 
-DEFAULT_CSV  = REPO_ROOT / "web" / "data" / "ens_salamanca.csv"
+DEFAULT_CSV = REPO_ROOT / "web" / "data" / "ens_salamanca.csv"
 DEFAULT_JSON = REPO_ROOT / "web" / "data" / "ens_meteograma.json"
-DEFAULT_PNG  = REPO_ROOT / "web" / "static" / "ecmwf" / "ens_meteograma.png"
+DEFAULT_PNG = REPO_ROOT / "web" / "static" / "ecmwf" / "ens_meteograma.png"
+DEFAULT_GLOBAL_OUT = REPO_ROOT / "data" / "ecmwf" / "global" / "ecmwf_ens_global_latest.grib"
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 SALAMANCA_LAT = 40.97
 SALAMANCA_LON = -5.66
-STEPS = list(range(6, 361, 6))   # 6..360 cada 6h (usa todo lo que exista)
+
+# Producción
+STEPS = list(range(6, 361, 6))  # 6..360 cada 6h
+NUMBERS = list(range(1, 51))    # 50 perturbados (pf)
+
+# Prueba rápida
+FAST_TEST_STEPS = [6, 12]
+FAST_TEST_NUMBERS = [1, 2]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,20 +73,15 @@ logging.basicConfig(
 )
 log = logging.getLogger("ens_meteogram")
 
-
 # ---------------------------------------------------------------------------
 # GRIB parsing
 # ---------------------------------------------------------------------------
 
 def _collect_ens_t2m(grib_path: str) -> dict[int, list[float]]:
     """
-    Parse a GRIB2 file and return ``{step_hours: [celsius_values]}``.
-
-    Handles multi-dataset files (cfgrib returns one xarray.Dataset per
-    unique combination of GRIB metadata) and gracefully skips datasets
-    that do not contain the ``t2m`` variable.
+    Parse a GRIB2 file and return {step_hours: [celsius_values]}.
     """
-    import cfgrib  # local import so the module can be imported without cfgrib
+    import cfgrib  # local import so module can be imported without cfgrib
 
     result: dict[int, list[float]] = {}
 
@@ -85,6 +94,7 @@ def _collect_ens_t2m(grib_path: str) -> dict[int, list[float]]:
     for ds in datasets:
         if "t2m" not in ds.data_vars:
             continue
+
         try:
             da = ds["t2m"].sel(
                 latitude=SALAMANCA_LAT,
@@ -109,7 +119,6 @@ def _collect_ens_t2m(grib_path: str) -> dict[int, list[float]]:
 
     return result
 
-
 # ---------------------------------------------------------------------------
 # Statistics
 # ---------------------------------------------------------------------------
@@ -117,10 +126,6 @@ def _collect_ens_t2m(grib_path: str) -> dict[int, list[float]]:
 def _compute_daily_stats(
     step_data: dict[int, list[float]],
 ) -> tuple[list[datetime.date], list[str], dict, dict]:
-    """
-    Derive per-day Tmin / Tmax distributions from ALL available 6-hourly ENS values.
-    Days are inferred from available steps (no fixed n_days limit).
-    """
     today = datetime.now(timezone.utc).date()
 
     dates: list[datetime.date] = []
@@ -131,8 +136,6 @@ def _compute_daily_stats(
     if not step_data:
         raise ValueError("No step data available.")
 
-    # Map steps -> forecast day index (1..N), using UTC windows:
-    # day 1 => steps 6,12,18,24 ; day 2 => 30..48 ; etc.
     day_to_steps: dict[int, list[int]] = {}
     for sh in sorted(step_data):
         if sh < 6:
@@ -144,7 +147,6 @@ def _compute_daily_stats(
         day_steps = sorted(day_to_steps[day_idx])
         available = {sh: np.array(step_data[sh], dtype=float) for sh in day_steps if sh in step_data}
 
-        # Need at least 2 times in the day to compute meaningful min/max
         if len(available) < 2:
             log.warning("Day %d: only %d step(s) available, skipping.", day_idx, len(available))
             continue
@@ -153,7 +155,7 @@ def _compute_daily_stats(
         if n_mem == 0:
             continue
 
-        arr = np.array([available[sh][:n_mem] for sh in sorted(available)])  # shape: (steps_in_day, members)
+        arr = np.array([available[sh][:n_mem] for sh in sorted(available)])  # (steps_in_day, members)
         member_tmin = arr.min(axis=0)
         member_tmax = arr.max(axis=0)
 
@@ -175,35 +177,23 @@ def _compute_daily_stats(
 
     return dates, day_labels, tmin_stats, tmax_stats
 
-
 # ---------------------------------------------------------------------------
 # Plot
 # ---------------------------------------------------------------------------
 
-def _draw_box_whisker(
-    ax,
-    x: float,
-    stats: dict,
-    i: int,
-    color_fill: str,
-    color_edge: str,
-    color_median: str,
-    half_w: float = 0.28,
-) -> None:
-    """Draw a single box-and-whisker element on *ax* at position *x*."""
-    mn  = stats["mn"][i]
+def _draw_box_whisker(ax, x: float, stats: dict, i: int, color_fill: str, color_edge: str, color_median: str, half_w: float = 0.28) -> None:
+    mn = stats["mn"][i]
     p10 = stats["p10"][i]
     p25 = stats["p25"][i]
     p50 = stats["p50"][i]
     p75 = stats["p75"][i]
     p90 = stats["p90"][i]
-    mx  = stats["mx"][i]
+    mx = stats["mx"][i]
     cap = half_w * 0.6
 
     rect = mpatches.Rectangle(
         (x - half_w, p25), 2 * half_w, p75 - p25,
-        facecolor=color_fill, edgecolor=color_edge,
-        linewidth=1.5, alpha=0.75, zorder=3,
+        facecolor=color_fill, edgecolor=color_edge, linewidth=1.5, alpha=0.75, zorder=3
     )
     ax.add_patch(rect)
     ax.plot([x - half_w, x + half_w], [p50, p50], color=color_median, lw=2.5, zorder=4)
@@ -217,14 +207,7 @@ def _draw_box_whisker(
         ax.plot(x, y_ext, marker="_", ms=10, color=color_edge, mew=2.0, zorder=3)
 
 
-def _plot_meteogram(
-    day_labels: list[str],
-    tmin_stats: dict,
-    tmax_stats: dict,
-    run_label: str,
-    output_path: Path,
-) -> None:
-    """Create and save the ENS meteogram PNG."""
+def _plot_meteogram(day_labels: list[str], tmin_stats: dict, tmax_stats: dict, run_label: str, output_path: Path) -> None:
     n = len(day_labels)
     x = np.arange(n)
     offset = 0.22
@@ -238,31 +221,16 @@ def _plot_meteogram(
         _draw_box_whisker(ax, x[i] - offset, tmin_stats, i, "#6699ff", "#0044cc", "#003399")
 
     ax.set_xlim(-0.7, n - 0.3)
-    all_vals = (
-        tmin_stats["mn"] + tmin_stats["mx"]
-        + tmax_stats["mn"] + tmax_stats["mx"]
-    )
+    all_vals = tmin_stats["mn"] + tmin_stats["mx"] + tmax_stats["mn"] + tmax_stats["mx"]
     ax.set_ylim(min(all_vals) - 2, max(all_vals) + 2)
     ax.set_xticks(x)
     ax.set_xticklabels(day_labels, fontsize=10)
     ax.set_ylabel("Temperatura (°C)", fontsize=11)
-    ax.set_title(
-        f"Meteograma ENS ECMWF — Salamanca (40.97°N, 5.66°W)\n{run_label}",
-        fontsize=12, pad=10,
-    )
+    ax.set_title(f"Meteograma ENS ECMWF — Salamanca (40.97°N, 5.66°W)\n{run_label}", fontsize=12, pad=10)
     ax.yaxis.grid(True, ls="--", alpha=0.4, color="gray")
     ax.set_axisbelow(True)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
-    #legend_elements = [
-    #    mpatches.Patch(fc="#ff6666", ec="#cc0000", alpha=0.75, label="Tmax"),
-    #    mpatches.Patch(fc="#6699ff", ec="#0044cc", alpha=0.75, label="Tmin"),
-    #    Line2D([0], [0], color="gray", lw=4, alpha=0.6, label="Caja: p25–p75"),
-    #    Line2D([0], [0], color="gray", lw=1.5, label="Bigotes: p10–p90"),
-    #    Line2D([0], [0], color="gray", lw=1, ls=":", label="Extremos: mín–máx"),
-    #]
-    #ax.legend(handles=legend_elements, loc="upper right", fontsize=9, framealpha=0.8)
 
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -270,18 +238,11 @@ def _plot_meteogram(
     plt.close(fig)
     log.info("PNG saved → %s", output_path)
 
-
 # ---------------------------------------------------------------------------
 # Artifact writers
 # ---------------------------------------------------------------------------
 
-def _save_csv(
-    csv_path: Path,
-    dates: list,
-    day_labels: list[str],
-    tmin_stats: dict,
-    tmax_stats: dict,
-) -> None:
+def _save_csv(csv_path: Path, dates: list, day_labels: list[str], tmin_stats: dict, tmax_stats: dict) -> None:
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     headers = [
         "date", "day_label",
@@ -295,116 +256,116 @@ def _save_csv(
             writer.writerow([
                 d.strftime("%Y-%m-%d"),
                 lbl.replace("\n", " "),
-                round(tmax_stats["mn"][i],  2),
+                round(tmax_stats["mn"][i], 2),
                 round(tmax_stats["p10"][i], 2),
                 round(tmax_stats["p25"][i], 2),
                 round(tmax_stats["p50"][i], 2),
                 round(tmax_stats["p75"][i], 2),
                 round(tmax_stats["p90"][i], 2),
-                round(tmax_stats["mx"][i],  2),
-                round(tmin_stats["mn"][i],  2),
+                round(tmax_stats["mx"][i], 2),
+                round(tmin_stats["mn"][i], 2),
                 round(tmin_stats["p10"][i], 2),
                 round(tmin_stats["p25"][i], 2),
                 round(tmin_stats["p50"][i], 2),
                 round(tmin_stats["p75"][i], 2),
                 round(tmin_stats["p90"][i], 2),
-                round(tmin_stats["mx"][i],  2),
+                round(tmin_stats["mx"][i], 2),
             ])
     log.info("CSV saved → %s", csv_path)
 
 
-def _save_json(
-    json_path: Path,
-    dates: list,
-    tmin_stats: dict,
-    tmax_stats: dict,
-    generated_at: datetime,
-) -> None:
+def _save_json(json_path: Path, dates: list, tmin_stats: dict, tmax_stats: dict, generated_at: datetime) -> None:
     json_path.parent.mkdir(parents=True, exist_ok=True)
     days_list = []
     for i, d in enumerate(dates):
         days_list.append({
             "date": d.strftime("%Y-%m-%d"),
             "tmax": {
-                "min": round(tmax_stats["mn"][i],  2),
+                "min": round(tmax_stats["mn"][i], 2),
                 "p10": round(tmax_stats["p10"][i], 2),
                 "p25": round(tmax_stats["p25"][i], 2),
                 "p50": round(tmax_stats["p50"][i], 2),
                 "p75": round(tmax_stats["p75"][i], 2),
                 "p90": round(tmax_stats["p90"][i], 2),
-                "max": round(tmax_stats["mx"][i],  2),
+                "max": round(tmax_stats["mx"][i], 2),
             },
             "tmin": {
-                "min": round(tmin_stats["mn"][i],  2),
+                "min": round(tmin_stats["mn"][i], 2),
                 "p10": round(tmin_stats["p10"][i], 2),
                 "p25": round(tmin_stats["p25"][i], 2),
                 "p50": round(tmin_stats["p50"][i], 2),
                 "p75": round(tmin_stats["p75"][i], 2),
                 "p90": round(tmin_stats["p90"][i], 2),
-                "max": round(tmin_stats["mx"][i],  2),
+                "max": round(tmin_stats["mx"][i], 2),
             },
         })
+
     payload = {
         "generated_at": generated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "location": {"name": "Salamanca", "lat": SALAMANCA_LAT, "lon": SALAMANCA_LON},
         "days": days_list,
     }
+
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
     log.info("JSON saved → %s", json_path)
 
 
+def _persist_global_grib(source_grib: Path, latest_out: Path) -> None:
+    latest_out.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_grib, latest_out)
+    log.info("Global GRIB overwritten → %s", latest_out)
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def build(csv_path: Path, json_path: Path, png_path: Path) -> None:
-    """Download ENS data, compute stats, and save all artifacts."""
-
+def build(csv_path: Path, json_path: Path, png_path: Path, global_out: Path, fast_test: bool = False) -> None:
+    t0 = time.perf_counter()
     generated_at = datetime.now(timezone.utc)
     run_label = f"Generado: {generated_at.strftime('%Y-%m-%d %H:%M UTC')}"
 
-    step_data = {}
-    tmp_files = []
+    steps = FAST_TEST_STEPS if fast_test else STEPS
+    numbers = FAST_TEST_NUMBERS if fast_test else NUMBERS
+    log.info("Mode: %s | steps=%s | members=%s", "FAST_TEST" if fast_test else "FULL", steps, numbers)
+
+    step_data: dict[int, list[float]] = {}
+    tmp_path: Path | None = None
 
     try:
-        log.info("Downloading ENS...")
+        log.info("Downloading ENS global (2t)...")
 
-        ds = ekd.from_source(
-            "ecmwf-open-data",
+        with tempfile.NamedTemporaryFile(suffix=".grib", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+
+        client = Client(source="ecmwf")
+        client.retrieve(
             stream="enfo",
             type="pf",
             param="2t",
-            step=STEPS,
-            number=range(1, 51),
+            step=steps,
+            number=numbers,
+            target=str(tmp_path),
         )
 
-        fd, tmp_path = tempfile.mkstemp(suffix=".grib")
-        os.close(fd)
-        tmp_files.append(tmp_path)
+        log.info("Downloaded GRIB temp file → %s", tmp_path)
 
-        ds.save(tmp_path)
+        _persist_global_grib(source_grib=tmp_path, latest_out=global_out)
 
-        log.info("Parsing %s...", tmp_path)
-
-        parsed = _collect_ens_t2m(tmp_path)
-
+        log.info("Parsing %s for Salamanca meteogram...", tmp_path)
+        parsed = _collect_ens_t2m(str(tmp_path))
         if not parsed:
-            log.warning("No t2m data found")
+            log.warning("No t2m data found in GRIB.")
 
         for sh, vals in parsed.items():
             step_data.setdefault(sh, []).extend(vals)
 
     finally:
-        for f in tmp_files:
-            if os.path.exists(f):
-                os.unlink(f)
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
 
     if not step_data:
-        log.error(
-            "No ENS data could be parsed. "
-            "Check that cfgrib and libeccodes are correctly installed."
-        )
+        log.error("No ENS data could be parsed for Salamanca. Check cfgrib + eccodes installation.")
         sys.exit(1)
 
     log.info("Steps available: %s", sorted(step_data))
@@ -416,21 +377,31 @@ def build(csv_path: Path, json_path: Path, png_path: Path) -> None:
     _save_json(json_path, dates, tmin_stats, tmax_stats, generated_at)
     _plot_meteogram(day_labels, tmin_stats, tmax_stats, run_label, png_path)
 
+    elapsed = time.perf_counter() - t0
     log.info("All artifacts saved successfully.")
-
+    log.info("Total runtime: %.1f s (%.2f min)", elapsed, elapsed / 60.0)
+    print(f"[build_ens_meteogram] Tiempo total: {elapsed:.1f} s ({elapsed/60.0:.2f} min)")
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Build ECMWF ENS meteogram for Salamanca.")
-    p.add_argument("--csv",  type=Path, default=DEFAULT_CSV,  help="Output CSV path")
+    p = argparse.ArgumentParser(description="Build ECMWF ENS meteogram for Salamanca + single global GRIB cache.")
+    p.add_argument("--csv", type=Path, default=DEFAULT_CSV, help="Output CSV path")
     p.add_argument("--json", type=Path, default=DEFAULT_JSON, help="Output JSON path")
-    p.add_argument("--png",  type=Path, default=DEFAULT_PNG,  help="Output PNG path")
+    p.add_argument("--png", type=Path, default=DEFAULT_PNG, help="Output PNG path")
+    p.add_argument("--global-out", type=Path, default=DEFAULT_GLOBAL_OUT, help="Path to overwritten global ENS GRIB")
+    p.add_argument("--fast-test", action="store_true", help="Quick test mode (few steps/members)")
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    build(args.csv, args.json, args.png)
+    build(
+        csv_path=args.csv,
+        json_path=args.json,
+        png_path=args.png,
+        global_out=args.global_out,
+        fast_test=args.fast_test,
+    )
