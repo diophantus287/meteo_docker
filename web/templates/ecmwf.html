@@ -18,9 +18,24 @@
       margin-bottom: 18px;
     }
 
+    .btn-volver {
+      display: inline-block;
+      margin: 6px 0 18px 0;
+      padding: 10px 16px;
+      background: #1f6feb;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .btn-volver:hover {
+      filter: brightness(0.95);
+    }
+
     /* Contenedor ancho */
     .wrap {
-      max-width: 1700px;   /* súbelo a 1900px si quieres todavía más */
+      max-width: 1700px;
       margin: 0 auto;
     }
 
@@ -58,13 +73,14 @@
 </head>
 <body>
 
-  <nav>
-    <a href="/">Inicio</a> |
-    <a href="/ecmwf">ECMWF</a>
-  </nav>
+  
 
   <div class="wrap">
     <h1>Meteogramas ECMWF ENS</h1>
+
+    <p>
+      <a class="btn-volver" href="/">Volver</a>
+    </p>
 
     {% if meteogramas and meteogramas|length > 0 %}
       {% for m in meteogramas %}

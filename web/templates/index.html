@@ -17,9 +17,20 @@
         .btn-ecmwf:hover {
             filter: brightness(0.95);
         }
+
+        /* Evita que se monten */
+        .plot-img {
+            display: block;
+            width: 600px;
+            max-width: 100%;
+            height: auto;
+            margin: 0 0 18px 0;
+        }
     </style>
 </head>
 <body>
+
+    
 
     <h1>Predicciones y temperaturas</h1>
 
@@ -29,10 +40,9 @@
 
     {% for plot in plots %}
         <!--<h2>{{ plot }}</h2>-->
-
         <img
+            class="plot-img"
             src="{{ url_for('static', filename='plots/' + plot) }}?v={{ cache_id }}"
-            width="600"
             alt="{{ plot }}"
         >
     {% endfor %}

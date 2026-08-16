@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+from datetime import datetime
 
 import matplotlib
 matplotlib.use("Agg")
@@ -159,7 +160,8 @@ def _plot_one(csv_path: Path, out_png: Path, title: str):
     )
     ax_p.tick_params(axis="x", labelbottom=False)
 
-    fig.suptitle(title, y=0.995, fontsize=13, weight="bold")
+    plot_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    fig.suptitle(f"{title} · Plot: {plot_ts}", y=0.995, fontsize=13, weight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.985])
 
     out_png.parent.mkdir(parents=True, exist_ok=True)

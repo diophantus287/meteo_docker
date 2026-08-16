@@ -16,13 +16,13 @@ source .venv/bin/activate
 # 1) Descargar/actualizar GRIB ENS global
 # flock evita solapes de cron (si ya hay uno corriendo, no entra)
 # timeout corta el proceso si supera 90 minutos
-#flock -n /tmp/ecmwf.lock timeout 90m python scripts/build_ens_meteogram.py
+flock -n /tmp/ecmwf.lock timeout 90m python scripts/build_ens_meteogram.py
 
 # 2) Extraer series locales a CSV (abre GRIB una sola vez para todas las ciudades)
-#python scripts/ens_to_csv.py \
-#  --city salamanca \
-#  --city vilanova_de_milfontes \
-#  --city portimao
+python scripts/ens_to_csv.py \
+  --city salamanca \
+  --city vilanova_de_milfontes \
+  --city portimao
 
 # 3) Generar PNGs desde todos los CSV ens_*.csv encontrados en web/data
 python scripts/plot_ens_from_csv.py --all
