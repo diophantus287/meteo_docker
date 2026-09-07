@@ -2,8 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>ECMWF Meteogramas</title>
+  <title>ECMWF Meteogramas Simple</title>
   <meta http-equiv="refresh" content="300">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: system-ui, Arial, sans-serif;
@@ -63,28 +64,49 @@
     .empty {
       color: #666;
     }
+
+    @media (max-width: 768px) {
+      body {
+        margin: 0;
+      }
+
+      .wrap {
+        padding: 0;
+      }
+
+      .card {
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+      }
+
+      h1, .btn {
+        margin-left: 12px;
+        margin-right: 12px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <div class="wrap">
-    <h1>Meteogramas ECMWF ENS</h1>
+    <h1>Meteogramas ECMWF ENS (Simple)</h1>
 
     <p>
       <a class="btn" href="/">Volver</a>
-      <a class="btn" href="/ecmwf_simple">Ver ECMWF Simple</a>
+      <a class="btn" href="/ecmwf">Ver ECMWF</a>
     </p>
 
     {% if meteogramas and meteogramas|length > 0 %}
       {% for m in meteogramas %}
         <div class="card">
           <h3>{{ m.label }}</h3>
-          <img src="{{ m.url }}" alt="Meteograma {{ m.label }}">
+          <img src="{{ m.url }}" alt="Meteograma simple {{ m.label }}">
           <div class="meta">{{ m.file }}</div>
         </div>
       {% endfor %}
     {% else %}
-      <p class="empty">No hay meteogramas en <code>web/static/ecmwf</code>.</p>
+      <p class="empty">No hay meteogramas en <code>web/static/ecmwf_simple</code>.</p>
     {% endif %}
   </div>
 </body>

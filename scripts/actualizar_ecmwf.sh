@@ -21,11 +21,11 @@ flock -n /tmp/ecmwf.lock timeout 90m python scripts/build_ens_meteogram.py
 # 2) Extraer series locales a CSV (abre GRIB una sola vez para todas las ciudades)
 python scripts/ens_to_csv.py \
   --city salamanca \
-  --city vilanova_de_milfontes \
-  --city portimao
 
 # 3) Generar PNGs desde todos los CSV ens_*.csv encontrados en web/data
 python scripts/plot_ens_from_csv.py --all
+
+python scripts/plot_ens_simple_from_csv.py --all
 
 END_TS=$(date +%s)
 ELAPSED=$((END_TS - START_TS))
